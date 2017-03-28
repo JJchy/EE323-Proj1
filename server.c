@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -12,19 +13,45 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
-#define PORT "7777"  // the port users will be connecting to
 #define BACKLOG 10   // how many pending connections queue will hold
 #define PACKETSIZE 1024
-#define MAXDATASIZE 20000000
+#define MAXDATASIZE 5000000
 
-void *get_in_addr(struct sockaddr *sock_addr)
+void *get_in_addr (struct sockaddr *sock_addr)
 {
   if (sock_addr->sa_family == AF_INET) 
     return &(((struct sockaddr_in*)sock_addr)->sin_addr);
   return &(((struct sockaddr_in6*)sock_addr)->sin6_addr);
 }
 
-int main (void)
+char * port_number (int argc, char** argv)
+{
+  if ((strcmp (argv[1], "-p") != 0) || (argc != 3))
+  {
+    perror ("server : argument\n");
+    exit (1);
+  }
+  
+  for (int i = 0; i < strlen (argv[2]); i++)
+  {
+    if (isdigit (argv[2][i]) == 0)
+    {
+      perror ("server : PORT number\n");
+      exit (1);
+    }
+  }
+
+  if (atoi (argv[2]) > 65535 || atoi (argv[2]) < 1024)
+  {
+    perror ("server : PORT number\n");
+    exit (1);
+  }
+
+  return argv[2];
+}
+  
+
+int main (int argc, char** argv)
 {
   int sockfd, new_sockfd;
   int bytes, location;
@@ -35,8 +62,12 @@ int main (void)
   char s[INET6_ADDRSTRLEN];
   char packet[PACKETSIZE];
   char buff[MAXDATASIZE];
+  char PORT[6];
 
+  memset (&PORT, 0, 6);
   memset (&buff, 0, MAXDATASIZE);
+
+  strcpy (PORT, port_number (argc, argv));
 
   memset (&hints, 0, sizeof (hints));
   hints.ai_family = AF_UNSPEC;
@@ -90,6 +121,7 @@ int main (void)
 
   while (1)
   {
+    printf ("Success\n");
     sock_in_size = sizeof (their_addr);
     new_sockfd = accept (sockfd, (struct sockaddr *) & their_addr, &sock_in_size);
     if (new_sockfd == -1)
@@ -114,6 +146,8 @@ int main (void)
 
         if (bytes != PACKETSIZE)
         {
+          if (packet[0] == -1) close (new_sockfd);
+
           if (strlen (buff) != 0)
           {
             strcat (buff, "\0");
@@ -139,7 +173,8 @@ int main (void)
 
     while (waitpid (-1, NULL, WNOHANG) > 0);
   }
-  // close 어떻게 짜지??  
+}
+
 
 
 

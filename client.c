@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>
@@ -74,10 +75,71 @@ bool check_port_ip_number (int argc, char** argv) // true -> port first, false -
 
 int main (int argc, char** argv)
 {
-  int sockfd, bytes;
-  int bytes, location;
+  int sockfd, bytes, location;
   struct addrinfo hints, *servinfo, *p;
   int success;
   char s[INET6_ADDRSTRLEN];
+  bool is_port_first = check_port_ip_number (argc, argv);
+  char *PORT, *IP;
+  char buff[MAXDATASIZE];
+
+  memset (&buff, 0, MAXDATASIZE);
+
+  if (is_port_first)
+  {
+    PORT = argv[2];
+    IP = argv[4];
+  }
+  else
+  {
+    PORT = argv[4];
+    IP = argv[2];
+  }
+
+  memset (&hints, 0, sizeof (hints));
+  hints.ai_family  = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  
+  if ((success = getaddrinfo (IP, PORT, &hints, &servinfo)) != 0) 
+  {
+    fprintf (stderr, "getaddrinfo : %s\n", gai_strerror (success));
+    return 1;
+  }
+
+  for (p = servinfo; p != NULL; p = p->ai_next)
+  {
+    if ((sockfd = socket (p->ai_family, p->ai_socktype,\
+                          p->ai_protocol)) == -1)
+    {
+      perror ("client : socket\n");
+      continue;
+    }
+
+    if (connect (sockfd, p->ai_addr, p->ai_addrlen) == -1)
+    {
+      close (sockfd);
+      perror ("client : connect\n");
+      continue;
+    }
+
+    break;
+  }
+
+  if (p == NULL)
+  {
+    fprintf (stderr, "client : failed to connect");
+    return 2;
+  }
+
+  freeaddrinfo (servinfo);
+
+  while (1)
+  {
+    bytes = fgets (buff, 5000000, stdin);
+  }
+
+
+
+
 }
 

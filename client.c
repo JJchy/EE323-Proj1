@@ -75,13 +75,15 @@ bool check_port_ip_number (int argc, char** argv) // true -> port first, false -
 
 int main (int argc, char** argv)
 {
-  int sockfd, bytes, location;
+  int sockfd, location;
+  size_t bytes;
   struct addrinfo hints, *servinfo, *p;
-  int success;
+  int success, enter_number;
   char s[INET6_ADDRSTRLEN];
   bool is_port_first = check_port_ip_number (argc, argv);
   char *PORT, *IP;
   char buff[MAXDATASIZE];
+  char *double_enter;
 
   memset (&buff, 0, MAXDATASIZE);
 
@@ -133,13 +135,96 @@ int main (int argc, char** argv)
 
   freeaddrinfo (servinfo);
 
+  enter_number = 0;
+  location = 0;
+
   while (1)
   {
-    bytes = fgets (buff, 5000000, stdin);
+    fgets (buff, 5000000, stdin);
+
+    if (buff[0] == '\n' && strlen (buff) == 1) 
+    {
+      enter_number++;
+      if (enter_number == 2) break;
+      continue;
+    }
+
+    if (buff[PACKETSIZE - 1] == '\n')
+    {
+      if (bytes < PACKETSIZE)
+      {
+        if (send (sockfd, buff, bytes, 0) == -1)
+        {
+          perror ("client : send\n");
+          exit (1);
+        }
+        enter_number = 1;
+        continue;
+      }
+
+      else
+      {
+        do
+        {
+          if (send (sockfd, &buff[location], PACKETSIZE, 0) == -1)
+          {
+            perror ("client : send\n");
+            exit (1);
+          }
+          location += PACKETSIZE;
+        } while (bytes - location >= PACKETSIZE);
+
+        if (location == bytes)
+        {
+          if (send (sockfd, "\n", PACKETSIZE, 0) == -1)
+          {
+            perror ("client : send\n");
+            exit (1);
+          }
+        }
+
+        continue;
+      }
+    }
+
+    else
+    {
+    } //요거 구현하면 끝!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    bytes = strlen (buff);
+    if (bytes <= PACKETSIZE)
+    {
+      if (buff[PACKETSIZE - 1] == '\n')
+      {
+        if (send (sockfd, buff, bytes - 1, 0) == -1)
+        {
+          perror ("client : send");
+          break;
+        }
+        enter_number = 1;
+        continue;
+      }
+
+      else
+      {
+      }
+        
+    }
   }
 
-
-
-
+  close (sockfd);
+  return 0;
 }
-

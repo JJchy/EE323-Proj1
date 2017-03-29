@@ -136,6 +136,12 @@ int main (int argc, char** argv)
           perror ("server : recv\n");
           exit (1);
         }
+        
+        if (bytes == 0)
+        {
+          close (new_sockfd);
+          return 0;
+        }
 
         if (bytes != PACKETSIZE)
         {
@@ -143,6 +149,7 @@ int main (int argc, char** argv)
 
           if (strlen (buff) != 0)
           {
+            if (!((bytes == 1) && (packet[0] == '\n'))) strcat (buff, packet);
             strcat (buff, "\0");
             puts (buff);
           }

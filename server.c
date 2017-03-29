@@ -17,14 +17,14 @@
 #define PACKETSIZE 1024
 #define MAXDATASIZE 5000000
 
-void *get_in_addr (struct sockaddr *sock_addr)
+void* get_in_addr (struct sockaddr* sock_addr)
 {
   if (sock_addr->sa_family == AF_INET) 
     return &(((struct sockaddr_in*)sock_addr)->sin_addr);
   return &(((struct sockaddr_in6*)sock_addr)->sin6_addr);
 }
 
-char * port_number (int argc, char** argv)
+void check_port_number (int argc, char** argv)
 {
   if ((strcmp (argv[1], "-p") != 0) || (argc != 3))
   {
@@ -41,13 +41,11 @@ char * port_number (int argc, char** argv)
     }
   }
 
-  if (atoi (argv[2]) > 65535 || atoi (argv[2]) < 1024)
+  if ((atoi (argv[2]) > 65535) || (atoi (argv[2]) < 1024))
   {
     perror ("server : PORT number\n");
     exit (1);
   }
-
-  return argv[2];
 }
   
 
@@ -62,19 +60,17 @@ int main (int argc, char** argv)
   char s[INET6_ADDRSTRLEN];
   char packet[PACKETSIZE];
   char buff[MAXDATASIZE];
-  char PORT[6];
 
-  memset (&PORT, 0, 6);
   memset (&buff, 0, MAXDATASIZE);
 
-  strcpy (PORT, port_number (argc, argv));
+  check_port_number (argc, argv);
 
   memset (&hints, 0, sizeof (hints));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  if ((success = getaddrinfo (NULL, PORT, &hints, &servinfo)) != 0)
+  if ((success = getaddrinfo (NULL, argv[2], &hints, &servinfo)) != 0)
   {
     fprintf (stderr, "getaddrinfo : %s\n", gai_strerror (success));
     return 1;

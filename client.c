@@ -75,7 +75,7 @@ bool check_port_ip_number (int argc, char** argv) // true -> port first, false -
 
 int main (int argc, char** argv)
 {
-  int sockfd, location;
+  int sockfd, location, i;
   size_t bytes;
   struct addrinfo hints, *servinfo, *p;
   int success, enter_number;
@@ -129,7 +129,7 @@ int main (int argc, char** argv)
 
   if (p == NULL)
   {
-    fprintf (stderr, "client : failed to connect");
+    fprintf (stderr, "client : failed to connect\n");
     return 2;
   }
 
@@ -140,16 +140,18 @@ int main (int argc, char** argv)
 
   while (1)
   {
-    fgets (buff, 5000000, stdin);
+    fgets (buff, 5000000, stdin); // fgets 개행문자때 끊어버리네... 시발
 
-    if (buff[0] == '\n' && strlen (buff) == 1) 
+    if (((buff[0] == '\n') || (buff[0] == -1)) && strlen (buff) == 1) 
     {
       enter_number++;
       if (enter_number == 2) break;
       continue;
     }
 
-    if (buff[PACKETSIZE - 1] == '\n')
+    printf ("%d\n", strlen (buff));
+    bytes = strlen (buff);
+    if (buff[bytes - 1] == '\n')
     {
       if (bytes < PACKETSIZE)
       {
@@ -158,8 +160,6 @@ int main (int argc, char** argv)
           perror ("client : send\n");
           exit (1);
         }
-        enter_number = 1;
-        continue;
       }
 
       else
@@ -172,7 +172,7 @@ int main (int argc, char** argv)
             exit (1);
           }
           location += PACKETSIZE;
-        } while (bytes - location >= PACKETSIZE);
+        } while (bytes - location > 0);
 
         if (location == bytes)
         {
@@ -182,46 +182,47 @@ int main (int argc, char** argv)
             exit (1);
           }
         }
-
-        continue;
+        location = 0;
       }
+
+      enter_number = 1;
     }
 
     else
     {
-    } //요거 구현하면 끝!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    bytes = strlen (buff);
-    if (bytes <= PACKETSIZE)
-    {
-      if (buff[PACKETSIZE - 1] == '\n')
+      for (i = 0; i < bytes; i++)
       {
-        if (send (sockfd, buff, bytes - 1, 0) == -1)
+        if (enter_number == 2) 
         {
-          perror ("client : send");
+          i -= 1;
           break;
         }
-        enter_number = 1;
-        continue;
+        if (buff [i] == '\n') enter_number++;
+      }
+
+      if (i < PACKETSIZE)
+      {
+        if (send (sockfd, buff, i, 0) == -1)
+        {
+          perror ("client : send\n");
+          exit (1);
+        }
       }
 
       else
       {
+        do
+        {
+          if (send (sockfd, &buff[location], PACKETSIZE, 0) == -1)
+          {
+            perror ("client : send\n");
+            exit (1);
+          }
+          location += PACKETSIZE;
+        } while (i - location > 0);
       }
-        
+
+      break;
     }
   }
 

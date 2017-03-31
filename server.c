@@ -136,10 +136,13 @@ int main (int argc, char** argv)
           perror ("server : recv\n");
           exit (1);
         }
+
+        printf ("%d\n", bytes);
         
         if (bytes == 0)
         {
           close (new_sockfd);
+          printf ("ASDFASDF\n");
           return 0;
         }
 
@@ -151,13 +154,14 @@ int main (int argc, char** argv)
           {
             if (!((bytes == 1) && (packet[0] == '\n'))) strcat (buff, packet);
             strcat (buff, "\0");
-            puts (buff);
+            fputs (buff, stdout);
+            memset (&buff, 0, strlen (buff));
           }
 
           else
           {
             packet[PACKETSIZE] = '\0';
-            puts (packet);
+            fputs (packet, stdout);
           }
         }
 
@@ -165,7 +169,10 @@ int main (int argc, char** argv)
         {
           strcat (buff, packet);
           if (packet[PACKETSIZE - 1] == -1)
-            puts (buff);
+          {
+            fputs (buff, stdout);
+            memset (&buff, 0, strlen (buff));
+          }
         }
       }
     }
@@ -173,6 +180,7 @@ int main (int argc, char** argv)
 
     while (waitpid (-1, NULL, WNOHANG) > 0);
   }
+
 }
 
 

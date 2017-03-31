@@ -1,4 +1,11 @@
 // client
+/*----------------------------------------------------------------------------
+ * Name : Choi ho yong
+ * Student ID : 20130672
+ * File name : client.c
+ *
+ * Project 1. Introduction of socket programming
+ *--------------------------------------------------------------------------*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,15 +21,11 @@
 #include <arpa/inet.h>
 
 #define PACKETSIZE 1024
-#define MAXDATASIZE 5000000
+#define MAXDATASIZE 1000000
 
-void* get_in_addr (struct sockaddr* sock_addr)
-{
-  if (sock_addr->sa_family == AF_INET)
-    return &(((struct sockaddr_in*)sock_addr)->sin_addr);
-  return &(((struct sockaddr_in6*)sock_addr)->sin6_addr);
-}
-
+//check_port_ip_number : check command line correctness
+// ./client -p PORTNUM -h IP or ./client -h IP -p PORTNUM
+// 1024 <= PORTNUM <= 65536
 bool check_port_ip_number (int argc, char** argv) // true -> port first, false -> ip first
 {
   int port_location, ip_location;
@@ -73,6 +76,7 @@ bool check_port_ip_number (int argc, char** argv) // true -> port first, false -
   else false;
 }
 
+// main : make client which send message to server
 int main (int argc, char** argv)
 {
   int sockfd, location, i;
@@ -85,7 +89,7 @@ int main (int argc, char** argv)
   char buff[MAXDATASIZE];
   char *double_enter;
 
-  memset (&buff, 0, MAXDATASIZE);
+  memset (buff, 0, MAXDATASIZE);
 
   if (is_port_first)
   {
@@ -135,95 +139,75 @@ int main (int argc, char** argv)
 
   freeaddrinfo (servinfo);
 
+  // client is success to connect with server
   enter_number = 0;
   location = 0;
 
   while (1)
   {
-    fgets (buff, 5000000, stdin); // fgets 개행문자때 끊어버리네... 시발
+    fgets (buff, MAXDATASIZE, stdin);
 
-    if (((buff[0] == '\n') || (buff[0] == -1)) && strlen (buff) == 1) 
+    if (buff[0] == '\n' && strlen (buff) == 1) //type just enter
     {
       enter_number++;
       if (enter_number == 2) break;
       continue;
     }
 
-    printf ("%d\n", strlen (buff));
     bytes = strlen (buff);
+    
+    if (bytes == 0) //EOF case
+    {
+      close (sockfd);
+      return 0;
+    }
+
+    if (bytes < PACKETSIZE) // short message case
+    {
+      if (send (sockfd, buff, bytes, 0) == -1)
+      {
+        perror ("client : send\n");
+        exit (1);
+      }
+    }
+
+    // If a message is long, divided the message to packet and send separately.
+    else 
+    {
+      do
+      {
+        if (send (sockfd, &buff[location], PACKETSIZE, 0) == -1)
+        {
+          perror ("client : send\n");
+          exit (1);
+        }
+        location += PACKETSIZE;
+      } while ((int)bytes - location > PACKETSIZE);
+
+      //last packet
+      if (send (sockfd, &buff[location], strlen (&buff[location]), 0) == -1)
+      {
+        perror ("client : send\n");
+        exit (1);
+      }
+    }
+
+    // before reaching EOF or double enter, client does not terminate. 
     if (buff[bytes - 1] == '\n')
     {
-      if (bytes < PACKETSIZE)
+      if (location == bytes)
       {
-        if (send (sockfd, buff, bytes, 0) == -1)
+        if (send (sockfd, "\n", PACKETSIZE, 0) == -1)
         {
           perror ("client : send\n");
           exit (1);
         }
       }
-
-      else
-      {
-        do
-        {
-          if (send (sockfd, &buff[location], PACKETSIZE, 0) == -1)
-          {
-            perror ("client : send\n");
-            exit (1);
-          }
-          location += PACKETSIZE;
-        } while (bytes - location > 0);
-
-        if (location == bytes)
-        {
-          if (send (sockfd, "\n", PACKETSIZE, 0) == -1)
-          {
-            perror ("client : send\n");
-            exit (1);
-          }
-        }
-        location = 0;
-      }
-
+      location = 0;
       enter_number = 1;
+      memset (buff, 0, MAXDATASIZE);
     }
-
-    else
-    {
-      for (i = 0; i < bytes; i++)
-      {
-        if (enter_number == 2) 
-        {
-          i -= 1;
-          break;
-        }
-        if (buff [i] == '\n') enter_number++;
-      }
-
-      if (i < PACKETSIZE)
-      {
-        if (send (sockfd, buff, i, 0) == -1)
-        {
-          perror ("client : send\n");
-          exit (1);
-        }
-      }
-
-      else
-      {
-        do
-        {
-          if (send (sockfd, &buff[location], PACKETSIZE, 0) == -1)
-          {
-            perror ("client : send\n");
-            exit (1);
-          }
-          location += PACKETSIZE;
-        } while (i - location > 0);
-      }
-
-      break;
-    }
+    else break;
   }
 
   close (sockfd);

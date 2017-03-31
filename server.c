@@ -1,4 +1,11 @@
 // server 
+/*----------------------------------------------------------------------------
+ * Name : Choi ho yong
+ * Student ID : 20130672
+ * File name : server.c
+ *
+ * Project 1. Introduction of socket programming
+ *--------------------------------------------------------------------------*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,16 +21,12 @@
 #include <sys/wait.h>
 #include <signal.h>
 #define BACKLOG 10   // how many pending connections queue will hold
-#define PACKETSIZE 1024
-#define MAXDATASIZE 5000000
+#define PACKETSIZE 1024     // maximum of capacity of one time transmission
+#define MAXDATASIZE 1000000 // maximum of file capacity
 
-void* get_in_addr (struct sockaddr* sock_addr)
-{
-  if (sock_addr->sa_family == AF_INET) 
-    return &(((struct sockaddr_in*)sock_addr)->sin_addr);
-  return &(((struct sockaddr_in6*)sock_addr)->sin6_addr);
-}
-
+// check_port_number : check command line correctness
+// ./server -p PORTNUM
+// 1024 <= PORTNUM <= 65535
 void check_port_number (int argc, char** argv)
 {
   if ((strcmp (argv[1], "-p") != 0) || (argc != 3))
@@ -48,7 +51,7 @@ void check_port_number (int argc, char** argv)
   }
 }
   
-
+// main : make server which listen to client's messages
 int main (int argc, char** argv)
 {
   int sockfd, new_sockfd;
@@ -61,7 +64,7 @@ int main (int argc, char** argv)
   char packet[PACKETSIZE];
   char buff[MAXDATASIZE];
 
-  memset (&buff, 0, MAXDATASIZE);
+  memset (buff, 0, MAXDATASIZE);
 
   check_port_number (argc, argv);
 
@@ -108,6 +111,8 @@ int main (int argc, char** argv)
   }
 
   freeaddrinfo (servinfo);
+  // server bind certain PORT number which you put into server.
+  // server are ready for listening client's connection request.
 
   if (listen (sockfd, BACKLOG) == -1)
   {
@@ -117,7 +122,6 @@ int main (int argc, char** argv)
 
   while (1)
   {
-    printf ("Success\n");
     sock_in_size = sizeof (their_addr);
     new_sockfd = accept (sockfd, (struct sockaddr *) & their_addr, &sock_in_size);
     if (new_sockfd == -1)
@@ -125,60 +129,63 @@ int main (int argc, char** argv)
       perror ("server : accept\n");
       continue;
     }
-
-    if (!fork ())
+    
+    // server and client are connected.
+    // For connection of other clients, Use fork function to perform listening
+    // and transmissing at the same time.
+    // We divide big file at packet, and transmit separately.
+    if (!fork ()) // child process come here
     {
       while (1)
       {
-        memset (&packet, 0, PACKETSIZE);
+        memset (packet, 0, PACKETSIZE);
         if ((bytes = recv (new_sockfd, packet, PACKETSIZE, 0)) == -1)
         {
           perror ("server : recv\n");
           exit (1);
         }
-
-        printf ("%d\n", bytes);
         
-        if (bytes == 0)
+        if (bytes == 0) //client is finished.
         {
           close (new_sockfd);
-          printf ("ASDFASDF\n");
           return 0;
         }
 
-        if (bytes != PACKETSIZE)
+        if (bytes != PACKETSIZE) //last packet is arrived.
         {
-          if (packet[0] == -1) close (new_sockfd);
 
           if (strlen (buff) != 0)
           {
             if (!((bytes == 1) && (packet[0] == '\n'))) strcat (buff, packet);
             strcat (buff, "\0");
             fputs (buff, stdout);
-            memset (&buff, 0, strlen (buff));
+            memset (buff, 0, MAXDATASIZE); 
           }
 
           else
           {
+            if (packet[0] == -1) close (new_sockfd); 
             packet[PACKETSIZE] = '\0';
-            fputs (packet, stdout);
+            fputs (packet, stdout); 
           }
         }
 
-        else 
-        {
-          strcat (buff, packet);
+        else //the file is big, so last packet will send after this.
+        { 
+          if (strlen (buff) == 0) strncpy (buff, packet, PACKETSIZE);
+          else strncat (buff, packet, PACKETSIZE);
+
           if (packet[PACKETSIZE - 1] == -1)
           {
             fputs (buff, stdout);
-            memset (&buff, 0, strlen (buff));
+            memset (buff, 0, strlen (buff));
           }
         }
       }
     }
-    else close (new_sockfd);
+    else close (new_sockfd); // parent process come here
 
-    while (waitpid (-1, NULL, WNOHANG) > 0);
+    while (waitpid (-1, NULL, WNOHANG) > 0); // reap the zombie processes
   }
 
 }
